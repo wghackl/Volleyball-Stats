@@ -1,18 +1,56 @@
 # Volleyball Stats
 
-A single-file, fully local volleyball stat tracker. No server, no install, no internet.
+A single-file, fully local volleyball stat tracker. No backend, no accounts, no analytics.
+Your stats never leave the device they were entered on.
 
-**To run:** double-click `index.html`. That's it.
+**On the Mac:** double-click `index.html`.
+
+**On the iPhone:** <https://wghackl.github.io/Volleyball-Stats/> → Share → Add to Home Screen.
+
+## Installing on the iPhone
+
+1. Open <https://wghackl.github.io/Volleyball-Stats/> in **Safari** (must be Safari — Chrome
+   on iOS can't install home-screen apps).
+2. Tap the **Share** button, scroll down, tap **Add to Home Screen**, then **Add**.
+3. Launch it from the icon at least once while still on Wi-Fi. That first launch lets the
+   service worker cache the app.
+4. Put the phone in airplane mode and open it again to confirm it works offline.
+
+After step 3 it never needs the network again. The page is loaded from cache, and there is
+no server to talk to — the site hosts a program, not your data.
+
+### What is and isn't on the internet
+
+| | Where it lives |
+|---|---|
+| The app (HTML/JS/icons) | Public GitHub repo, served by GitHub Pages |
+| **Your teams, rosters, matches and stats** | **Only in your phone's local storage** |
+
+Nothing you type is ever uploaded. The hosted copy is byte-identical for everyone and
+contains no data.
+
+### Updating the app
+
+Push a change to `main` and Pages redeploys within a minute or two. **Bump `VERSION` in
+`sw.js` whenever `index.html` changes** — otherwise installed phones keep serving the old
+cached copy forever. On the next launch the new worker takes over and the page reloads
+itself once.
 
 ## Where your data lives
 
-In your browser's `localStorage` (key `vbstats.v1`) — **not** in this folder. Two things
-follow from that:
+In `localStorage` (key `vbstats.v1`) — **not** in this folder, and not in the repo. Which
+means:
 
-- Opening `index.html` in a *different* browser or profile shows an empty app.
-- Clearing your browser's site data erases your stats.
+- The Mac copy and the phone copy are **separate stores with no sync**. Same app, two sets
+  of stats. Move data between them with the JSON export.
+- Opening `index.html` in a different browser or profile shows an empty app.
+- Clearing site data — or deleting the home-screen icon on iOS — erases the stats.
+- iOS Safari evicts `localStorage` for ordinary sites after 7 days of no visits.
+  Home-screen apps get their own storage container and aren't subject to that, which is
+  another reason to install it properly rather than just bookmarking the URL.
 
-Use **Matches → Export all data (JSON)** to back up or move to another machine.
+Use **Matches → Export all data (JSON)** to back up. On a phone this is the only thing
+standing between you and losing a season.
 
 ## Getting started
 
@@ -44,7 +82,7 @@ What changes:
 
 Nothing is duplicated in the data model; it's one app with two layouts.
 
-**This is not yet installable on a phone.** It's a responsive layout you can preview. Making
+**Installed as a home-screen app** via the URL at the top of this README. It was previously
 it a real home-screen app needs a web app manifest and a service worker, and a service
 worker requires loading the page once from an HTTPS origin (`file://` and a plain LAN IP
 won't register one).
