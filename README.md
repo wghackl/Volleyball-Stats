@@ -82,10 +82,8 @@ What changes:
 
 Nothing is duplicated in the data model; it's one app with two layouts.
 
-**Installed as a home-screen app** via the URL at the top of this README. It was previously
-it a real home-screen app needs a web app manifest and a service worker, and a service
-worker requires loading the page once from an HTTPS origin (`file://` and a plain LAN IP
-won't register one).
+This layout is what you get on the installed home-screen app — see
+[Installing on the iPhone](#installing-on-the-iphone) above.
 
 ## Keyboard shortcuts (Match tab)
 
