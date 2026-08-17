@@ -163,6 +163,53 @@
   .badge{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
     padding:2px 7px;border-radius:20px;background:rgba(77,163,255,.16);color:var(--accent)}
 
+  /* ============ court / attack placement ============ */
+  .place{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:12px}
+  .place summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+    font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);
+    min-height:30px}
+  .place summary::-webkit-details-marker{display:none}
+  .place summary::after{content:'▾';margin-left:auto;font-size:11px}
+  .place[open] summary::after{content:'▴'}
+  .place[open] summary{margin-bottom:7px}
+  .prow{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .opt{font-size:9px;font-weight:700;color:var(--dim);text-transform:none;letter-spacing:0;
+    border:1px solid var(--line);border-radius:20px;padding:1px 7px;margin-left:5px}
+  .fine{font-size:10px;color:var(--dim);font-weight:700;text-transform:none;letter-spacing:0}
+  .shotsel{display:flex;gap:3px;background:var(--panel);padding:3px;border-radius:8px}
+  .shotsel button{padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;color:var(--muted);min-height:34px}
+  .shotsel button.on{background:var(--accent);color:#06121f}
+
+  .court{background:#0d1116;border:1px solid var(--line);border-radius:9px;padding:8px}
+  .court .net{text-align:center;font-size:8.5px;letter-spacing:.2em;color:var(--dim);font-weight:800;
+    border-bottom:2px solid var(--accent);padding-bottom:4px;margin-bottom:7px}
+  .zones{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .zone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;
+    min-height:52px;border-radius:7px;border:1px solid var(--line);padding:5px 3px;
+    transition:background .12s}
+  button.zone:hover{border-color:#4a5666}
+  .zone.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  /* the zone number is the identifier, so it must stay legible on the darkest fill */
+  .zone .zn{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.05em}
+  .zone .zc{font-size:17px;font-weight:800;letter-spacing:-.5px;line-height:1.1;color:var(--fg)}
+  .zone .zd{font-size:9.5px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+  /* the three attack outcomes, repeated right under the court so the
+     zone -> outcome sequence never needs a scroll */
+  .quickatt{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:7px}
+  .quickatt .pbtn{min-height:50px;font-size:11.5px;border-radius:9px}
+  .quickatt .pbtn .ct{font-size:15px}
+  .cscale{display:flex;align-items:center;gap:3px;margin-top:7px;font-size:9px;color:var(--dim);font-weight:700}
+  .cscale i{width:17px;height:9px;border-radius:2px;border:1px solid var(--line);display:block}
+  .zchip{font-size:9.5px;font-weight:800;letter-spacing:.04em;padding:1px 6px;border-radius:20px;
+    background:rgba(77,163,255,.16);color:var(--accent)}
+
+  .pgrid2{display:grid;grid-template-columns:minmax(0,320px) 1fr;gap:16px;align-items:start}
+  @media(max-width:700px){.pgrid2{grid-template-columns:1fr;gap:11px}}
+  .psum p{margin:0 0 9px;font-size:13px;color:var(--muted)}
+  .psum p b{color:var(--fg)}
+  .psum .warn{color:var(--warn)}
+  .psum .fine{font-size:11.5px;color:var(--dim)}
+
   /* ============ phone pad ============
      Duplicate set of stat buttons, laid out for thumbs. Only one of
      .cats / .phonepad is ever visible; both carry data-stat so the
@@ -235,6 +282,12 @@
     .pchip .pn{font-size:9px;max-width:58px;font-weight:600}
     .pchip .pos{display:none}
 
+    /* the court must not push the primary stat pad below the fold */
+    .place{padding:8px 9px;margin-bottom:9px}
+    .zone{min-height:44px;padding:3px}
+    .zone .zc{font-size:15px}
+    .court{padding:6px}
+    .hint .wide{display:none}
     .cats{display:none}
     .phonepad{display:block}
     .undobar{display:block}
@@ -312,6 +365,15 @@ const STATS = [
   ['digErr',        'Dig Error',     'Defense',  'bad', 'F', 2, 'Dig Error'],
 ].map(([key,label,cat,tone,kb,tier,short])=>({key,label,cat,tone,kb,tier,short:short??label}));
 
+/* ---------- attack placement ----------
+   Zones are the standard rotation positions OF THE TEAM BEING ATTACKED,
+   drawn net-at-top exactly like a rotation sheet: 4-3-2 front, 5-6-1 back.
+   Location is optional — an attack with no zone still counts everywhere. */
+const ZONE_ORDER   = [4,3,2,5,6,1];
+const ATTACK_STATS = new Set(['kill','attackErr','attack0']);
+const SHOTS        = [['hit','Hit'],['tip','Tip']];
+const SHOT_LABEL   = Object.fromEntries(SHOTS);
+
 const CATS = [...new Set(STATS.map(s=>s.cat))];
 const STAT_BY_KB = Object.fromEntries(STATS.map(s=>[s.kb.toLowerCase(),s.key]));
 const STAT_LABEL = Object.fromEntries(STATS.map(s=>[s.key,s.label]));
@@ -374,6 +436,25 @@ const blockTot   = r => r.blockSolo + r.blockAssist/2;
 const points     = r => r.kill + r.ace + r.blockSolo + r.blockAssist/2;
 const errors     = r => r.attackErr + r.serveErr + r.recErr + r.setErr + r.blockErr + r.digErr;
 
+/* Attacks broken out by landing zone. Returns per-zone tallies plus the
+   attacks that were recorded without a location, which must stay visible —
+   otherwise the court silently under-reports and looks authoritative. */
+function placement(m, teamId, {playerId=null, shot=null, set=null}={}){
+  const grid = {}, unplaced = {att:0, kill:0, err:0};
+  for(const ev of m.events){
+    if(ev.teamId !== teamId || !ATTACK_STATS.has(ev.stat)) continue;
+    if(set && ev.set !== set) continue;
+    if(playerId && (ev.playerId ?? 'TEAM') !== playerId) continue;
+    if(shot && (ev.shot || 'hit') !== shot) continue;
+    const c = ev.zone ? (grid[ev.zone] ??= {att:0, kill:0, err:0}) : unplaced;
+    c.att++;
+    if(ev.stat === 'kill') c.kill++;
+    else if(ev.stat === 'attackErr') c.err++;
+  }
+  return {grid, unplaced};
+}
+const zoneHit = c => c && c.att ? (c.kill - c.err) / c.att : null;
+
 /* ---------- formatting ---------- */
 function pct3(v){ // volleyball convention: .333 / -.083 / 1.000
   if(v===null) return '—';
@@ -389,6 +470,46 @@ const pFull  = p => [jersey(p) ? '#'+jersey(p) : '', (p.name||'').trim()].filter
 const pDash  = p => (p.name||'').trim() ? esc(p.name) : '<span style="color:var(--dim)">—</span>';
 const half = v => Number.isInteger(v) ? String(v) : v.toFixed(1);
 const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* Court diagram. Shading is a SEQUENTIAL single-hue ramp on attack volume
+   (light -> dark, never a rainbow); every cell also prints its count, so the
+   colour is redundant encoding and the chart still reads in greyscale. */
+function courtHtml(cells, {arm=null, clickable=false, detail=false}={}){
+  const counts = ZONE_ORDER.map(z => cells[z]?.att ?? 0);
+  const max = Math.max(1, ...counts);
+  const tag = clickable ? 'button' : 'div';
+  return `<div class="court">
+    <div class="net">NET</div>
+    <div class="zones">
+      ${ZONE_ORDER.map(z => {
+        const c = cells[z];
+        const a = c && c.att ? 0.10 + 0.42 * (c.att / max) : 0;
+        const hp = zoneHit(c);
+        const tip = c && c.att
+          ? `Zone ${z} — ${c.att} attack${c.att===1?'':'s'}, ${c.kill} kill${c.kill===1?'':'s'}, `
+            + `${c.err} error${c.err===1?'':'s'}, hitting ${pct3(hp)}`
+          : `Zone ${z} — no attacks`;
+        return `<${tag} class="zone ${arm===z?'on':''}" ${clickable?`data-zone="${z}"`:''}
+            style="background:rgba(77,163,255,${a.toFixed(3)})" title="${esc(tip)}">
+          <span class="zn">${z}</span>
+          <span class="zc num">${c?.att ?? 0}</span>
+          ${detail && c?.att ? `<span class="zd num">${c.kill}K · ${pct3(hp)}</span>` : ''}
+        </${tag}>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+/* legend for the sequential ramp — a scale, not a category key.
+   Suppressed entirely when nothing is located, since a ramp with no data
+   behind it reads as though the court were populated. */
+function courtScale(max){
+  if(!max) return '';
+  const steps = [0, .25, .5, .75, 1];
+  return `<div class="cscale"><span>0</span>
+    ${steps.map(s=>`<i style="background:rgba(77,163,255,${(s?0.10+0.42*s:0).toFixed(3)})"></i>`).join('')}
+    <span>${max} attack${max===1?'':'s'}</span></div>`;
+}
 
 let toastTimer;
 function toast(msg){
@@ -459,6 +580,44 @@ function vMatch(){
     <button class="${ui.set===i+1?'on':''}" data-set="${i+1}">${i+1}</button>`).join('')
     + `<button data-newset title="Start a new set">+</button>`;
 
+  ui.shot ??= 'hit';
+  /* Default open where there's room, closed on a phone — the court plus the
+     full stat pad don't both fit above the fold at 844px. Once the user
+     toggles it, their choice wins on both. */
+  const roomy = typeof matchMedia === 'function' ? matchMedia('(min-width:701px)').matches : true;
+  const courtOpen = S.ui.court ?? roomy;
+  const zoneCells = sel ? placement(m, teamId, {playerId: sel}).grid : {};
+  const courtBlock = `
+    <details class="place" ${courtOpen ? 'open' : ''}>
+      <summary>
+        <span>Attack placement <span class="opt">optional</span></span>
+        ${ui.zone ? `<span class="zchip">zone ${ui.zone} armed</span>` : ''}
+      </summary>
+      <div class="prow">
+        <div class="shotsel">
+          ${SHOTS.map(([k,l])=>`<button class="${ui.shot===k?'on':''}" data-shot="${k}">${l}</button>`).join('')}
+        </div>
+        <div class="spacer"></div>
+        <span class="fine">this player, this match</span>
+      </div>
+      ${courtHtml(zoneCells, {arm: ui.zone ?? null, clickable: true})}
+      <div class="quickatt">
+        ${['kill','attackErr','attack0'].map(k => {
+          const s = STATS.find(x => x.key === k);
+          return `<button class="pbtn ${s.tone}" data-stat="${k}">
+            <span class="ct ${counts[k]?'':'z'} num">${counts[k]}</span>${s.short}
+          </button>`;
+        }).join('')}
+      </div>
+      <div class="hint" style="margin-top:6px">
+        ${ui.zone
+          ? `Zone <b style="color:var(--accent)">${ui.zone}</b> armed — next attack lands there as a
+             <b>${SHOT_LABEL[ui.shot].toLowerCase()}</b>, then clears.`
+          : `Tap a zone, then an outcome above.<span class="wide"> Skip the zone and the attack still
+             counts, just without a location.</span>`}
+      </div>
+    </details>`;
+
   const padBtns = t => STATS.filter(s=>s.tier===t).map(s=>`
     <button class="pbtn ${s.tone}" data-stat="${s.key}">
       <span class="ct ${counts[s.key]?'':'z'} num">${counts[s.key]}</span>
@@ -484,6 +643,8 @@ function vMatch(){
       <span class="badge">${esc(teamName(ev.teamId).slice(0,14))}</span>
       <span>${p ? esc(pFull(p)) : 'Team'}</span>
       <span class="s ${st.tone==='good'?'pos':st.tone==='bad'?'neg':''}">${st.label}</span>
+      ${ev.zone ? `<span class="zchip">Z${ev.zone}</span>` : ''}
+      ${ev.shot === 'tip' ? `<span class="zchip">tip</span>` : ''}
       <span class="t">S${ev.set}</span>
     </div>`;
   }).join('') || `<div class="empty">No events yet — pick a player, then tap a stat.</div>`;
@@ -537,6 +698,7 @@ function vMatch(){
                <span class="ta"><b class="num">${attempts(mtd)}</b> attempts</span>
                <span class="hp ${mtdHit===null?'':mtdHit>=0?'pos':'neg'}"><b class="num">${pct3(mtdHit)}</b> hit%</span>
              </div>
+             ${courtBlock}
              <div class="cats">${catBlocks}</div>
              <div class="phonepad">
                <div class="pgrid">${padBtns(1)}</div>
@@ -612,7 +774,67 @@ function vBox(){
     </div>
   </div>
   ${teamBox(m, m.teamA, f)}
-  ${teamBox(m, m.teamB, f)}`;
+  ${placePanel(m, m.teamA, f)}
+  ${teamBox(m, m.teamB, f)}
+  ${placePanel(m, m.teamB, f)}`;
+}
+
+/* Where a team's attacks went. Sequential shading by volume; counts printed
+   in every cell so it reads without colour. */
+function placePanel(m, teamId, f){
+  const t = team(teamId);
+  const who  = S.ui['place_'+teamId] ?? '';
+  const shot = S.ui.placeShot ?? '';
+  const {grid, unplaced} = placement(m, teamId, {...f, playerId: who||null, shot: shot||null});
+
+  const located = Object.values(grid).reduce((n,c)=>n+c.att, 0);
+  if(!located && !unplaced.att) return '';   // nothing to show yet
+
+  const max = Math.max(0, ...ZONE_ORDER.map(z=>grid[z]?.att ?? 0));
+  const best = ZONE_ORDER
+    .map(z=>({z, ...(grid[z] ?? {att:0,kill:0,err:0})}))
+    .sort((a,b)=>b.att-a.att)[0];
+  const label = who
+    ? (who==='TEAM' ? 'Team / unassigned' : pFull(player(who)))
+    : 'All players';
+
+  return `
+  <div class="panel">
+    <div class="row" style="margin-bottom:11px">
+      <h2 style="margin:0">${esc(t.name)} — attack placement</h2>
+      <div class="spacer"></div>
+      <select data-placeplayer="${teamId}">
+        <option value="">All players</option>
+        ${t.players.map(p=>`<option value="${p.id}" ${who===p.id?'selected':''}>${esc(pFull(p))}</option>`).join('')}
+        <option value="TEAM" ${who==='TEAM'?'selected':''}>Team / unassigned</option>
+      </select>
+      <div class="setpills" style="margin:0;grid-column:auto">
+        ${[['','All'],...SHOTS].map(([k,l])=>`
+          <button class="${shot===k?'on':''}" data-placeshot="${k}">${l}</button>`).join('')}
+      </div>
+      <button class="btn sm" data-placecsv>Export CSV</button>
+    </div>
+    <div class="pgrid2">
+      <div>
+        ${courtHtml(grid, {detail:true})}
+        ${courtScale(max)}
+      </div>
+      <div class="psum">
+        <p><b>${esc(label)}</b>${shot?` · ${SHOT_LABEL[shot].toLowerCase()}s only`:''}${S.ui.boxSet?` · set ${S.ui.boxSet}`:''}</p>
+        ${located
+          ? `<p>${located} located attack${located===1?'':'s'}.
+               Most often <b>zone ${best.z}</b> — ${best.att} time${best.att===1?'':'s'},
+               ${best.kill} kill${best.kill===1?'':'s'}, hitting ${pct3(zoneHit(best))}.</p>`
+          : `<p>No attacks have a recorded location yet.</p>`}
+        ${unplaced.att
+          ? `<p class="warn">${unplaced.att} attack${unplaced.att===1?'':'s'} recorded without a
+               location — not shown on the court.</p>`
+          : ''}
+        <p class="fine">Zones are the positions of the team being attacked, net at top:
+          4-3-2 front row, 5-6-1 back row. Each cell shows attacks, then kills and hitting %.</p>
+      </div>
+    </div>
+  </div>`;
 }
 
 function teamBox(m, teamId, f){
@@ -777,16 +999,30 @@ function wire(){
   on('[data-go]','click', e => go(e.currentTarget.dataset.go));
 
   /* --- match view --- */
-  on('[data-side]','click', e => { S.ui.side = e.currentTarget.dataset.side; save(); render(); });
+  on('[data-side]','click', e => { S.ui.side = e.currentTarget.dataset.side; S.ui.zone = null; save(); render(); });
   on('[data-set]','click',  e => { S.ui.set = +e.currentTarget.dataset.set; save(); render(); });
   on('[data-sel]','click',  e => {
     const m = current(), tid = S.ui.side==='a' ? m.teamA : m.teamB;
-    S.ui['sel_'+tid] = e.currentTarget.dataset.sel; save(); render();
+    S.ui['sel_'+tid] = e.currentTarget.dataset.sel;
+    S.ui.zone = null;                       // never carry an armed zone to another player
+    save(); render();
   });
+  on('[data-zone]','click', e => {
+    const z = +e.currentTarget.dataset.zone;
+    S.ui.zone = S.ui.zone === z ? null : z; // tapping the armed zone disarms it
+    save(); render();
+  });
+  on('[data-shot]','click', e => { S.ui.shot = e.currentTarget.dataset.shot; save(); render(); });
+  on('[data-placeplayer]','change', e => {
+    S.ui['place_'+e.target.dataset.placeplayer] = e.target.value; save(); render();
+  });
+  on('[data-placeshot]','click', e => { S.ui.placeShot = e.currentTarget.dataset.placeshot; save(); render(); });
+  on('[data-placecsv]','click', exportPlacementCsv);
   on('[data-stat]','click', e => addStat(e.currentTarget.dataset.stat));
   on('[data-undo]','click', undo);
   // <details> resets on every re-render, so its open state has to be persisted
   on('details.more','toggle', e => { S.ui.more = e.target.open; save(); });
+  on('details.place','toggle', e => { S.ui.court = e.target.open; save(); });
   on('[data-newset]','click', () => {
     const m = current();
     m.sets.push({a:0,b:0}); S.ui.set = m.sets.length; save(); render();
@@ -904,10 +1140,19 @@ function addStat(stat){
   const teamId = S.ui.side==='a' ? m.teamA : m.teamB;
   const sel = S.ui['sel_'+teamId];
   if(!sel) return toast('Select a player first');
-  m.events.push({id:uid(), set:S.ui.set, teamId,
-                 playerId: sel==='TEAM' ? null : sel, stat});
+
+  const ev = {id:uid(), set:S.ui.set, teamId,
+              playerId: sel==='TEAM' ? null : sel, stat};
+  let note = '';
+  if(ATTACK_STATS.has(stat)){
+    ev.shot = S.ui.shot || 'hit';
+    if(S.ui.zone){ ev.zone = S.ui.zone; note = ` → zone ${ev.zone}`; }
+    note += ` (${SHOT_LABEL[ev.shot].toLowerCase()})`;
+  }
+  m.events.push(ev);
+  S.ui.zone = null;              // a zone arms one attack, then clears
   save(); render();
-  toast(STAT_LABEL[stat] + ' recorded');
+  toast(STAT_LABEL[stat] + note);
 }
 
 function undo(){
@@ -957,6 +1202,35 @@ function exportCsv(){
   }
   const label = S.ui.boxSet ? 'set'+S.ui.boxSet : 'all-sets';
   download(`box-score-${m.date}-${label}.csv`, lines.join('\n'), 'text/csv');
+}
+
+/* Long format — one row per player × shot × zone. Easier to pivot than a
+   wide 6-zone layout, and unplaced attacks get an explicit row rather than
+   quietly vanishing. */
+function exportPlacementCsv(){
+  const m = current(); if(!m) return;
+  const f = S.ui.boxSet ? {set:S.ui.boxSet} : {};
+  const q = v => `"${String(v).replace(/"/g,'""')}"`;
+  const lines = [['Team','#','Player','Shot','Zone','Attacks','Kills','Errors','Hit%'].map(q).join(',')];
+
+  for(const tid of [m.teamA, m.teamB]){
+    const t = team(tid);
+    const people = [...t.players.map(p=>({id:p.id, p})), {id:'TEAM', p:{number:'', name:'Team / unassigned'}}];
+    for(const {id, p} of people){
+      for(const [sk, sl] of SHOTS){
+        const {grid, unplaced} = placement(m, tid, {...f, playerId:id, shot:sk});
+        for(const z of [...ZONE_ORDER].sort((a,b)=>a-b)){
+          const c = grid[z]; if(!c?.att) continue;
+          lines.push([t.name, p.number, p.name, sl, z, c.att, c.kill, c.err, pct3(zoneHit(c))].map(q).join(','));
+        }
+        if(unplaced.att)
+          lines.push([t.name, p.number, p.name, sl, 'unplaced', unplaced.att, unplaced.kill,
+                      unplaced.err, pct3(zoneHit(unplaced))].map(q).join(','));
+      }
+    }
+  }
+  const label = S.ui.boxSet ? 'set'+S.ui.boxSet : 'all-sets';
+  download(`attack-placement-${m.date}-${label}.csv`, lines.join('\n'), 'text/csv');
 }
 
 /* ---------- offline support ----------

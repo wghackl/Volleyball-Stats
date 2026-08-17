@@ -85,6 +85,36 @@ Nothing is duplicated in the data model; it's one app with two layouts.
 This layout is what you get on the installed home-screen app — see
 [Installing on the iPhone](#installing-on-the-iphone) above.
 
+## Attack placement (where the ball went)
+
+Optional. Every attack still counts whether or not you locate it.
+
+**Recording.** Open **Attack placement** on the Match tab, pick **Hit** or **Tip**, tap a
+zone to arm it, then tap Kill / Att Error / In Play. The zone attaches to that one attack
+and clears, so it can never bleed onto the next rally. The three attack outcomes are
+repeated directly under the court, so the zone→outcome sequence never needs a scroll.
+
+The court is **open by default on a desktop and closed on a phone** — the court plus the
+full stat pad don't both fit above the fold at 844px. Once you toggle it, your choice sticks.
+
+**Zones** are the positions of the team *being attacked*, drawn like a rotation sheet with
+the net at the top:
+
+```
+        ——— NET ———
+     4      3      2      front row
+     5      6      1      back row
+```
+
+**Reading it.** The Box Score gets an *attack placement* panel per team: pick a player (or
+all), filter to hits or tips, and each zone shows attacks, kills and hitting % for that
+selection. Cell shading is a single-hue ramp on attack volume — the count is printed in
+every cell too, so it reads fine in greyscale. **Export CSV** gives long format, one row per
+player × shot × zone, easy to pivot.
+
+Attacks recorded without a zone are counted and called out explicitly under the court
+rather than silently dropped — otherwise the chart would look complete when it wasn't.
+
 ## Keyboard shortcuts (Match tab)
 
 | Key | Stat | | Key | Stat |
