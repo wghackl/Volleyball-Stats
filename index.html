@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1216">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" href="./icon-192.png">
+<title>Volleyball Stats</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e242c; --line:#2a323c;
+    --fg:#e8edf3; --muted:#93a1b1; --dim:#66727f;
+    --accent:#4da3ff; --good:#3ecf8e; --bad:#ff6b6b; --warn:#ffc857;
+    --radius:10px;
+    font-synthesis-weight:none;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--fg);
+    font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:60px;
+  }
+  button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+  input,select{
+    font:inherit; color:var(--fg); background:var(--panel2);
+    border:1px solid var(--line); border-radius:7px; padding:7px 9px;
+  }
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* ---------- top bar ---------- */
+  header{
+    position:sticky;top:0;z-index:30;background:rgba(15,18,22,.93);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
+  }
+  .bar{display:flex;align-items:center;gap:14px;padding:10px 16px;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:-.2px;font-size:15px;white-space:nowrap}
+  .brand span{color:var(--accent)}
+  nav{display:flex;gap:2px;margin-left:auto;background:var(--panel);padding:3px;border-radius:9px}
+  nav button{padding:6px 13px;border-radius:7px;color:var(--muted);font-weight:600;font-size:13px}
+  nav button:hover{color:var(--fg)}
+  nav button.on{background:var(--panel2);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.35)}
+
+  main{max-width:1180px;margin:0 auto;padding:18px 16px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+  h2{margin:0 0 12px;font-size:15px;letter-spacing:-.2px}
+  h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:700}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .spacer{flex:1}
+  .empty{color:var(--dim);padding:22px;text-align:center;font-size:13px}
+
+  .btn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 13px;font-weight:600;font-size:13px}
+  .btn:hover{background:#242c36;border-color:#3c4653}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#06121f}
+  .btn.primary:hover{background:#69b2ff}
+  .btn.danger{color:var(--bad)}
+  .btn.sm{padding:4px 9px;font-size:12px}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+
+  /* ---------- scoreboard ---------- */
+  .score{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px}
+  .side{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .side.b{align-items:flex-end}
+  .side .nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .side .pts{font-size:40px;font-weight:800;line-height:1;letter-spacing:-2px}
+  .side .ctl{display:flex;gap:5px}
+  .side .ctl button{flex:0 0 auto;width:30px;height:26px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;font-weight:700;color:var(--muted)}
+  .side .ctl button:hover{color:var(--fg);background:#242c36}
+  .mid{text-align:center;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.1em;font-weight:700}
+  .mid .setno{font-size:13px;color:var(--fg);margin-bottom:4px;letter-spacing:0;text-transform:none}
+  /* own full-width row: in the centre column it claimed ~194px and squashed
+     the score +/- buttons to 26px on a phone */
+  .setpills{grid-column:1/-1;display:flex;gap:4px;justify-content:center;margin-top:2px;flex-wrap:wrap}
+  .setpills button{padding:3px 9px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);
+    font-size:11px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+  .setpills button.on{background:var(--accent);border-color:var(--accent);color:#06121f}
+
+  /* ---------- tally ---------- */
+  .tally{display:grid;grid-template-columns:290px 1fr;gap:14px;align-items:start}
+  /* grid items default to min-width:auto, so one wide descendant (the roster
+     strip, a long log line) blows the track out past the viewport and drags
+     every panel with it. Pin it to 0 and let scroll containers scroll. */
+  .tally > *{min-width:0}
+  @media(max-width:820px){.tally{grid-template-columns:1fr}}
+  .teamtabs{display:flex;gap:3px;background:var(--panel2);padding:3px;border-radius:8px;margin-bottom:10px}
+  .teamtabs button{flex:1;padding:7px;border-radius:6px;font-weight:700;font-size:12px;color:var(--muted);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .teamtabs button.on{background:var(--accent);color:#06121f}
+  .roster{display:flex;flex-direction:column;gap:5px;max-height:430px;overflow:auto}
+  .pchip{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;
+    background:var(--panel2);border:1px solid var(--line);text-align:left;width:100%}
+  .pchip:hover{background:#242c36}
+  .pchip.on{border-color:var(--accent);background:rgba(77,163,255,.14);box-shadow:inset 0 0 0 1px var(--accent)}
+  .pchip .no{min-width:26px;height:22px;display:grid;place-items:center;border-radius:5px;background:#0f1319;
+    font-weight:800;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .pchip.on .no{background:var(--accent);color:#06121f}
+  .pchip .pn{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pchip .pos{margin-left:auto;font-size:10px;color:var(--dim);font-weight:700;letter-spacing:.05em}
+
+  .cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+  .cat{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:11px}
+  .cat h3{margin-bottom:8px}
+  .sbtns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .sbtn{position:relative;padding:11px 8px 9px;border-radius:8px;background:var(--panel);
+    border:1px solid var(--line);font-weight:700;font-size:12.5px;text-align:center;line-height:1.2}
+  .sbtn:hover{background:#252d38;transform:translateY(-1px)}
+  .sbtn:active{transform:translateY(0)}
+  .sbtn.good{border-color:rgba(62,207,142,.4);color:#7de5b8}
+  .sbtn.bad{border-color:rgba(255,107,107,.35);color:#ff9b9b}
+  .sbtn .kb{display:block;font-size:9px;color:var(--dim);font-weight:700;margin-top:3px;letter-spacing:.06em}
+  .sbtn .ct{position:absolute;top:4px;right:6px;font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .live{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:11px}
+  .live span{background:var(--panel2);border:1px solid var(--line);border-radius:7px;
+    padding:5px 10px;font-size:11px;color:var(--dim);font-weight:700;
+    text-transform:uppercase;letter-spacing:.05em}
+  .live b{font-size:15px;color:var(--fg);margin-right:4px;letter-spacing:-.3px}
+  .live .ta{border-color:rgba(77,163,255,.4)}
+  .live .ta b{color:var(--accent)}
+  .live .hp.pos b{color:var(--good)} .live .hp.neg b{color:var(--bad)}
+  .nosel{padding:26px;text-align:center;color:var(--dim);font-size:13px;
+    background:var(--panel2);border:1px dashed var(--line);border-radius:9px}
+
+  .log{display:flex;flex-direction:column;gap:4px;max-height:190px;overflow:auto}
+  .log .ev{display:flex;gap:9px;align-items:center;padding:5px 9px;background:var(--panel2);
+    border-radius:6px;font-size:12px;border:1px solid transparent}
+  .log .ev .s{font-weight:700}
+  .log .ev .t{color:var(--dim);margin-left:auto;font-variant-numeric:tabular-nums;font-size:11px}
+
+  /* ---------- tables ---------- */
+  .tw{overflow-x:auto;border:1px solid var(--line);border-radius:9px}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;min-width:760px}
+  th,td{padding:7px 9px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+  th{background:var(--panel2);color:var(--dim);font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.06em;font-weight:800;position:sticky;top:0;cursor:help}
+  th:first-child,td:first-child{text-align:center;width:44px}
+  th:nth-child(2),td:nth-child(2){text-align:left}
+  tbody tr:hover{background:rgba(255,255,255,.025)}
+  tbody tr:last-child td{border-bottom:none}
+  tr.tot{background:var(--panel2);font-weight:800}
+  tr.tot td{border-top:2px solid var(--line)}
+  td.num{font-variant-numeric:tabular-nums}
+  .pos{color:var(--good)} .neg{color:var(--bad)}
+  .grp{border-left:1px solid var(--line)}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px;margin-bottom:13px}
+  .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:11px 13px}
+  .kpi .l{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);font-weight:800}
+  .kpi .v{font-size:22px;font-weight:800;letter-spacing:-.5px;margin-top:3px;font-variant-numeric:tabular-nums}
+
+  .list{display:flex;flex-direction:column;gap:7px}
+  .item{display:flex;align-items:center;gap:11px;padding:10px 13px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:9px}
+  .item .ttl{font-weight:700;font-size:13.5px}
+  .item .sub{font-size:11.5px;color:var(--dim)}
+  .item.on{border-color:var(--accent)}
+  .badge{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+    padding:2px 7px;border-radius:20px;background:rgba(77,163,255,.16);color:var(--accent)}
+
+  /* ============ phone pad ============
+     Duplicate set of stat buttons, laid out for thumbs. Only one of
+     .cats / .phonepad is ever visible; both carry data-stat so the
+     same click handler drives them. */
+  .phonepad{display:none}
+  .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  .pbtn{position:relative;min-height:68px;border-radius:13px;background:var(--panel2);
+    border:1px solid var(--line);font-weight:800;font-size:12.5px;line-height:1.15;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    padding:7px 4px;-webkit-tap-highlight-color:transparent;text-align:center}
+  .pbtn:active{transform:scale(.955);background:#2c343f}
+  .pbtn.good{border-color:rgba(62,207,142,.45);color:#7de5b8;background:rgba(62,207,142,.07)}
+  .pbtn.bad{border-color:rgba(255,107,107,.4);color:#ff9b9b;background:rgba(255,107,107,.07)}
+  .pbtn .ct{font-size:19px;font-weight:800;color:var(--fg);font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .pbtn .ct.z{color:var(--dim);opacity:.45}
+  .pgrid.sm{grid-template-columns:repeat(4,1fr)}
+  .pgrid.sm .pbtn{min-height:54px;font-size:11px}
+  .pgrid.sm .pbtn .ct{font-size:15px}
+  details.more{margin-top:9px}
+  details.more summary{list-style:none;cursor:pointer;padding:10px;text-align:center;
+    background:var(--panel2);border:1px solid var(--line);border-radius:11px;
+    font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+  details.more summary::-webkit-details-marker{display:none}
+  details.more[open] summary{margin-bottom:7px}
+  .undobar{display:none;margin-top:9px}
+  .undobar button{width:100%;padding:14px;border-radius:12px;background:var(--panel2);
+    border:1px solid var(--line);font-weight:800;font-size:14px;color:var(--muted)}
+  .undobar button:disabled{opacity:.35}
+
+  @media(max-width:700px){
+    body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+    main{padding:11px 11px 0}
+    .panel{padding:12px;margin-bottom:11px;border-radius:12px}
+    .bar{padding:8px 13px calc(8px + env(safe-area-inset-top))}
+    .brand{font-size:14px}
+    /* backdrop-filter makes the header a containing block for fixed
+       descendants, which would pin the bottom nav to the header
+       instead of the screen. Drop it here; the nav escapes to the viewport. */
+    header{backdrop-filter:none;background:var(--bg)}
+
+    /* nav becomes a thumb-reachable bottom bar */
+    nav{position:fixed;left:0;right:0;bottom:0;margin:0;border-radius:0;padding:5px 6px;
+      border-top:1px solid var(--line);background:rgba(23,27,33,.97);backdrop-filter:blur(10px);
+      padding-bottom:calc(5px + env(safe-area-inset-bottom));z-index:40}
+    /* every control below is sized to the 44px minimum touch target */
+    nav button{flex:1;font-size:11px;padding:14px 3px;min-height:44px}
+
+    /* compact scoreboard */
+    .score{padding:10px 12px;gap:8px;margin-bottom:11px;border-radius:12px}
+    .side .pts{font-size:30px;letter-spacing:-1.5px}
+    .side .nm{font-size:12px}
+    .side .ctl{gap:7px}
+    .side .ctl button{width:44px;height:44px;font-size:17px;border-radius:9px}
+    .mid .setno{font-size:12px}
+    .setpills{gap:6px;margin-top:9px}
+    .setpills button{min-width:44px;min-height:44px;font-size:13px;border-radius:9px}
+
+    /* roster becomes a sticky horizontal strip of jersey numbers */
+    .tally{gap:11px}
+    .tally > .panel:first-child{position:sticky;top:43px;z-index:20;padding:9px 10px}
+    .teamtabs{margin-bottom:8px}
+    .roster{flex-direction:row;overflow-x:auto;max-height:none;gap:6px;padding-bottom:3px;
+      scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+    .roster::-webkit-scrollbar{height:0}
+    .pchip{width:auto;flex:0 0 auto;min-width:56px;flex-direction:column;gap:1px;
+      padding:7px 9px;scroll-snap-align:start;align-items:center}
+    .pchip .no{min-width:0;width:auto;height:auto;background:transparent;font-size:18px;
+      color:var(--fg);padding:0}
+    .pchip.on .no{background:transparent;color:var(--accent)}
+    .pchip .pn{font-size:9px;max-width:58px;font-weight:600}
+    .pchip .pos{display:none}
+
+    .cats{display:none}
+    .phonepad{display:block}
+    .undobar{display:block}
+    .live{gap:6px;margin-bottom:10px}
+    .live span{flex:1;text-align:center;padding:6px 4px;font-size:9.5px}
+    .live b{display:block;margin:0 0 1px;font-size:17px}
+    .kpis{grid-template-columns:repeat(4,1fr);gap:6px}
+    .kpi{padding:8px 6px;border-radius:9px}
+    .kpi .l{font-size:8px;letter-spacing:.04em}
+    .kpi .v{font-size:16px;margin-top:2px}
+    h2{font-size:14px}
+    .toast{bottom:calc(74px + env(safe-area-inset-bottom))}
+    table{min-width:640px;font-size:12px}
+    th,td{padding:6px 7px}
+  }
+
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel2);
+    border:1px solid var(--line);padding:9px 16px;border-radius:9px;font-size:13px;font-weight:600;
+    box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .18s;z-index:100}
+  .toast.show{opacity:1}
+  .hint{font-size:11.5px;color:var(--dim);margin-top:9px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand">🏐 Volleyball <span>Stats</span></div>
+    <nav>
+      <button data-v="match" class="on">Match</button>
+      <button data-v="box">Box Score</button>
+      <button data-v="teams">Teams</button>
+      <button data-v="matches">Matches</button>
+    </nav>
+  </div>
+</header>
+
+<main id="app"></main>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   Volleyball Stats — 100% local. All data lives in this
+   browser's localStorage under the key below. Nothing is sent
+   anywhere. Use Matches → Export to back up / move machines.
+   ============================================================ */
+const KEY = 'vbstats.v1';
+
+/* ---------- stat definitions ---------- */
+/* tier 1 = thumb-sized button on the phone pad (the nine you tap live);
+   tier 2 = behind "More stats". Desktop shows all of them by category. */
+const STATS = [
+  // key            label            cat         tone   kb  tier short
+  ['kill',          'Kill',          'Attack',   'good','K', 1],
+  ['attackErr',     'Attack Error',  'Attack',   'bad', 'E', 1, 'Att Error'],
+  ['attack0',       'Kept in Play',  'Attack',   '',    'A', 1, 'In Play'],
+
+  ['ace',           'Ace',           'Serve',    'good','S', 1],
+  ['serveErr',      'Serve Error',   'Serve',    'bad', 'X', 1, 'Serve Err'],
+  ['serve0',        'Serve in Play', 'Serve',    '',    'W', 2, 'Serve In'],
+
+  ['pass3',         'Pass 3',        'Reception','good','3', 2],
+  ['pass2',         'Pass 2',        'Reception','',    '2', 2],
+  ['pass1',         'Pass 1',        'Reception','',    '1', 2],
+  ['recErr',        'Recv Error',    'Reception','bad', '0', 2, 'Recv Err'],
+
+  ['assist',        'Assist',        'Set',      'good','T', 1],
+  ['setErr',        'Ball Hdl Err',  'Set',      'bad', 'Y', 2, 'Hdl Error'],
+
+  ['blockSolo',     'Block Solo',    'Block',    'good','B', 1, 'Solo Block'],
+  ['blockAssist',   'Block Assist',  'Block',    'good','N', 1, 'Block Ast'],
+  ['blockErr',      'Block Error',   'Block',    'bad', 'M', 2, 'Block Err'],
+
+  ['dig',           'Dig',           'Defense',  'good','D', 1],
+  ['digErr',        'Dig Error',     'Defense',  'bad', 'F', 2, 'Dig Error'],
+].map(([key,label,cat,tone,kb,tier,short])=>({key,label,cat,tone,kb,tier,short:short??label}));
+
+const CATS = [...new Set(STATS.map(s=>s.cat))];
+const STAT_BY_KB = Object.fromEntries(STATS.map(s=>[s.kb.toLowerCase(),s.key]));
+const STAT_LABEL = Object.fromEntries(STATS.map(s=>[s.key,s.label]));
+const POSITIONS = ['','OH','OPP','MB','S','L','DS'];
+
+/* ---------- persistence ---------- */
+const blank = () => ({teams:[], matches:[], activeMatch:null, ui:{}});
+let S = load();
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(!raw) return blank();
+    return Object.assign(blank(), JSON.parse(raw));
+  }catch(e){ console.error('load failed',e); return blank(); }
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(S)); }
+const uid = () => Math.random().toString(36).slice(2,10);
+
+/* ---------- lookups ---------- */
+const team    = id => S.teams.find(t=>t.id===id);
+const match   = id => S.matches.find(m=>m.id===id);
+const current = () => match(S.activeMatch);
+function player(pid){
+  for(const t of S.teams){ const p=t.players.find(p=>p.id===pid); if(p) return p; }
+  return null;
+}
+const teamName = id => team(id)?.name ?? 'Unknown';
+
+/* ---------- aggregation ----------
+   Events are the source of truth; every table is a reduce over
+   them. That keeps undo exact and lets any set be filtered out
+   after the fact without re-entering anything.                */
+const zero = () => Object.fromEntries(STATS.map(s=>[s.key,0]));
+
+function tally(m, filter={}){
+  const out = {};
+  for(const ev of m.events){
+    if(filter.set && ev.set !== filter.set) continue;
+    if(filter.teamId && ev.teamId !== filter.teamId) continue;
+    const k = ev.playerId || ('TEAM:'+ev.teamId);
+    (out[k] ??= zero())[ev.stat]++;
+  }
+  return out;
+}
+function sumRows(rows){
+  const t = zero();
+  for(const r of rows) for(const s of STATS) t[s.key] += r[s.key];
+  return t;
+}
+
+/* derived columns */
+const attempts   = r => r.kill + r.attackErr + r.attack0;
+const hitPct     = r => attempts(r) ? (r.kill - r.attackErr) / attempts(r) : null;
+const killPct    = r => attempts(r) ? r.kill / attempts(r) : null;
+const serveTot   = r => r.ace + r.serveErr + r.serve0;
+const recTot     = r => r.pass3 + r.pass2 + r.pass1 + r.recErr;
+const passRating = r => recTot(r) ? (3*r.pass3 + 2*r.pass2 + 1*r.pass1) / recTot(r) : null;
+const recPct     = r => recTot(r) ? (recTot(r) - r.recErr) / recTot(r) : null;
+const blockTot   = r => r.blockSolo + r.blockAssist/2;
+const points     = r => r.kill + r.ace + r.blockSolo + r.blockAssist/2;
+const errors     = r => r.attackErr + r.serveErr + r.recErr + r.setErr + r.blockErr + r.digErr;
+
+/* ---------- formatting ---------- */
+function pct3(v){ // volleyball convention: .333 / -.083 / 1.000
+  if(v===null) return '—';
+  const s = Math.abs(v).toFixed(3);
+  return (v<0?'-':'') + (Math.abs(v)>=1 ? s : s.slice(1));
+}
+const dec = (v,n=2) => v===null ? '—' : v.toFixed(n);
+/* Names are optional — most opponents only give you jersey numbers.
+   pFull() is the "#7 Wes" / "#7" / "Wes" form used wherever a player
+   is named on its own; pDash() is for tables that already have a # column. */
+const jersey = p => String(p.number ?? '').trim();
+const pFull  = p => [jersey(p) ? '#'+jersey(p) : '', (p.name||'').trim()].filter(Boolean).join(' ') || 'Unnamed';
+const pDash  = p => (p.name||'').trim() ? esc(p.name) : '<span style="color:var(--dim)">—</span>';
+const half = v => Number.isInteger(v) ? String(v) : v.toFixed(1);
+const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let toastTimer;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 1500);
+}
+
+/* ============================================================
+   VIEWS
+   ============================================================ */
+let view = 'match';
+const app = document.getElementById('app');
+
+document.querySelectorAll('nav button').forEach(b=>{
+  b.onclick = () => {
+    view = b.dataset.v;
+    document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on', x===b));
+    render();
+  };
+});
+
+function render(){
+  const scroll = window.scrollY;
+  app.innerHTML = ({match:vMatch, box:vBox, teams:vTeams, matches:vMatches})[view]();
+  wire();
+  window.scrollTo(0, scroll);
+}
+
+/* ---------- MATCH (live tally) ---------- */
+function vMatch(){
+  const m = current();
+  if(!m) return `<div class="panel"><div class="empty">
+      No match selected.<br><br>
+      <button class="btn primary" data-go="matches">Go to Matches</button>
+    </div></div>`;
+
+  const ui = S.ui;
+  ui.set ??= m.sets.length;
+  ui.set = Math.min(Math.max(1, ui.set), m.sets.length); // guard stale ui across matches
+  ui.side ??= 'a';
+  const teamId = ui.side === 'a' ? m.teamA : m.teamB;
+  const t = team(teamId);
+  const set = m.sets[ui.set-1] ?? m.sets[m.sets.length-1];
+  const selKey = 'sel_' + teamId;
+  const sel = ui[selKey] && (t.players.some(p=>p.id===ui[selKey]) || ui[selKey]==='TEAM') ? ui[selKey] : null;
+
+  // Running counts for the selected player: per-set (shown on the buttons)
+  // and match-to-date (shown in the live readout above them).
+  const counts = zero(), mtd = zero();
+  for(const ev of m.events){
+    if(ev.teamId!==teamId) continue;
+    if((ev.playerId ?? 'TEAM') !== sel) continue;
+    mtd[ev.stat]++;
+    if(ev.set===ui.set) counts[ev.stat]++;
+  }
+  const mtdHit = hitPct(mtd);
+
+  const roster = t.players.map(p=>`
+    <button class="pchip ${sel===p.id?'on':''}" data-sel="${p.id}">
+      <span class="no num">${esc(jersey(p) || '–')}</span>
+      <span class="pn">${pDash(p)}</span>
+      ${p.pos ? `<span class="pos">${esc(p.pos)}</span>` : ''}
+    </button>`).join('');
+
+  const setPills = m.sets.map((s,i)=>`
+    <button class="${ui.set===i+1?'on':''}" data-set="${i+1}">${i+1}</button>`).join('')
+    + `<button data-newset title="Start a new set">+</button>`;
+
+  const padBtns = t => STATS.filter(s=>s.tier===t).map(s=>`
+    <button class="pbtn ${s.tone}" data-stat="${s.key}">
+      <span class="ct ${counts[s.key]?'':'z'} num">${counts[s.key]}</span>
+      ${s.short}
+    </button>`).join('');
+
+  const catBlocks = CATS.map(c=>`
+    <div class="cat">
+      <h3>${c}</h3>
+      <div class="sbtns">
+        ${STATS.filter(s=>s.cat===c).map(s=>`
+          <button class="sbtn ${s.tone}" data-stat="${s.key}">
+            ${counts[s.key] ? `<span class="ct num">${counts[s.key]}</span>` : ''}
+            ${s.label}<span class="kb">${s.kb}</span>
+          </button>`).join('')}
+      </div>
+    </div>`).join('');
+
+  const recent = m.events.slice(-10).reverse().map(ev=>{
+    const p = ev.playerId ? player(ev.playerId) : null;
+    const st = STATS.find(s=>s.key===ev.stat);
+    return `<div class="ev">
+      <span class="badge">${esc(teamName(ev.teamId).slice(0,14))}</span>
+      <span>${p ? esc(pFull(p)) : 'Team'}</span>
+      <span class="s ${st.tone==='good'?'pos':st.tone==='bad'?'neg':''}">${st.label}</span>
+      <span class="t">S${ev.set}</span>
+    </div>`;
+  }).join('') || `<div class="empty">No events yet — pick a player, then tap a stat.</div>`;
+
+  return `
+  <div class="score">
+    <div class="side">
+      <div class="nm">${esc(teamName(m.teamA))}</div>
+      <div class="pts num">${set?.a ?? 0}</div>
+      <div class="ctl"><button data-pt="a,-1">−</button><button data-pt="a,1">+</button></div>
+    </div>
+    <div class="mid">
+      <div class="setno">Set ${ui.set}</div>
+      Sets ${m.sets.filter(s=>s.a>s.b).length} – ${m.sets.filter(s=>s.b>s.a).length}
+    </div>
+    <div class="side b">
+      <div class="nm">${esc(teamName(m.teamB))}</div>
+      <div class="pts num">${set?.b ?? 0}</div>
+      <div class="ctl"><button data-pt="b,-1">−</button><button data-pt="b,1">+</button></div>
+    </div>
+    <div class="setpills">${setPills}</div>
+  </div>
+
+  <div class="tally">
+    <div class="panel" style="margin:0">
+      <div class="teamtabs">
+        <button class="${ui.side==='a'?'on':''}" data-side="a">${esc(teamName(m.teamA))}</button>
+        <button class="${ui.side==='b'?'on':''}" data-side="b">${esc(teamName(m.teamB))}</button>
+      </div>
+      <div class="roster">
+        ${roster || `<div class="empty">No players on this roster.<br>Add them in <b>Teams</b>.</div>`}
+        <button class="pchip ${sel==='TEAM'?'on':''}" data-sel="TEAM">
+          <span class="no">TM</span><span class="pn">Team / unassigned</span>
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:14px">
+        ${sel
+          ? `<div class="row" style="margin-bottom:11px">
+               <h2 style="margin:0">Recording for
+                 <span style="color:var(--accent)">${sel==='TEAM' ? 'Team' : esc(pFull(player(sel)))}</span>
+               </h2>
+               <div class="spacer"></div>
+               <button class="btn sm" data-undo ${m.events.length?'':'disabled'}>↶ Undo (Z)</button>
+             </div>
+             <div class="live" title="Match to date. Attempts = Kills + Attack Errors + Kept in Play — kills and errors count themselves.">
+               <span><b class="num">${mtd.kill}</b> K</span>
+               <span><b class="num">${mtd.attackErr}</b> E</span>
+               <span class="ta"><b class="num">${attempts(mtd)}</b> attempts</span>
+               <span class="hp ${mtdHit===null?'':mtdHit>=0?'pos':'neg'}"><b class="num">${pct3(mtdHit)}</b> hit%</span>
+             </div>
+             <div class="cats">${catBlocks}</div>
+             <div class="phonepad">
+               <div class="pgrid">${padBtns(1)}</div>
+               <details class="more" ${S.ui.more?'open':''}>
+                 <summary>More stats</summary>
+                 <div class="pgrid sm">${padBtns(2)}</div>
+               </details>
+               <div class="undobar">
+                 <button data-undo ${m.events.length?'':'disabled'}>↶ Undo last stat</button>
+               </div>
+             </div>
+             <div class="hint">
+               <b>One tap per swing.</b> A Kill or Attack Error already counts as an attempt —
+               use <b>Kept in Play</b> only for a swing that was neither (dug, blocked back up, still alive).
+               Same for serves: Ace and Serve Error already count, <b>Serve in Play</b> is the rest.<br>
+               Counts on each button are this set only. Keyboard letters work once a player is selected.
+             </div>`
+          : `<div class="nosel">Select a player on the left to start recording.</div>`}
+      </div>
+      <div class="panel" style="margin:0">
+        <h3>Recent</h3>
+        <div class="log">${recent}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- BOX SCORE ---------- */
+const COLS = [
+  ['K',   'Kills',                    r=>r.kill,                'grp'],
+  ['E',   'Attack errors',            r=>r.attackErr],
+  ['TA',  'Total attack attempts',    r=>attempts(r)],
+  ['Hit%','Hitting efficiency (K−E)/TA', r=>pct3(hitPct(r)), '', r=>hitPct(r)],
+  ['K%',  'Kill percentage K/TA',     r=>pct3(killPct(r))],
+  ['SA',  'Service aces',             r=>r.ace, 'grp'],
+  ['SE',  'Service errors',           r=>r.serveErr],
+  ['TSA', 'Total serve attempts',     r=>serveTot(r)],
+  ['RE',  'Reception errors',         r=>r.recErr, 'grp'],
+  ['RTA', 'Total receptions',         r=>recTot(r)],
+  ['Rec%','Reception success (RTA−RE)/RTA', r=>pct3(recPct(r))],
+  ['Pass','Passer rating, 3-point scale', r=>dec(passRating(r))],
+  ['A',   'Assists',                  r=>r.assist, 'grp'],
+  ['BHE', 'Ball handling errors',     r=>r.setErr],
+  ['BS',  'Block solos',              r=>r.blockSolo, 'grp'],
+  ['BA',  'Block assists',            r=>r.blockAssist],
+  ['TB',  'Total blocks (BS + BA/2)', r=>half(blockTot(r))],
+  ['BE',  'Blocking errors',          r=>r.blockErr],
+  ['DIG', 'Digs',                     r=>r.dig, 'grp'],
+  ['DE',  'Dig errors',               r=>r.digErr],
+  ['PTS', 'Points (K + SA + BS + BA/2)', r=>half(points(r)), 'grp'],
+  ['ERR', 'Total errors',             r=>errors(r)],
+];
+
+function vBox(){
+  const m = current();
+  if(!m) return `<div class="panel"><div class="empty">No match selected.
+    <br><br><button class="btn primary" data-go="matches">Go to Matches</button></div></div>`;
+
+  S.ui.boxSet ??= 0; // 0 = all sets
+  const f = S.ui.boxSet ? {set:S.ui.boxSet} : {};
+
+  const pills = [0, ...m.sets.map((_,i)=>i+1)].map(n=>`
+    <button class="${S.ui.boxSet===n?'on':''}" data-boxset="${n}">${n===0?'All':'Set '+n}</button>`).join('');
+
+  return `
+  <div class="panel">
+    <div class="row">
+      <h2 style="margin:0">${esc(teamName(m.teamA))} vs ${esc(teamName(m.teamB))}</h2>
+      <span class="badge">${esc(m.date)}</span>
+      <div class="spacer"></div>
+      <div class="setpills" style="margin:0">${pills}</div>
+      <button class="btn sm" data-csv>Export CSV</button>
+    </div>
+  </div>
+  ${teamBox(m, m.teamA, f)}
+  ${teamBox(m, m.teamB, f)}`;
+}
+
+function teamBox(m, teamId, f){
+  const t = team(teamId);
+  const agg = tally(m, {...f, teamId});
+  const rows = [
+    ...t.players.map(p=>({p, r: agg[p.id] ?? zero()})),
+    ...(agg['TEAM:'+teamId] ? [{p:{number:'', name:'Team / unassigned', id:'TEAM'}, r: agg['TEAM:'+teamId]}] : [])
+  ].filter(x => Object.values(x.r).some(v=>v>0) || x.p.id!=='TEAM');
+
+  const tot = sumRows(rows.map(x=>x.r));
+  const he = hitPct(tot);
+
+  const body = rows.map(({p,r})=>`
+    <tr>
+      <td class="num">${esc(jersey(p))}</td>
+      <td>${p.id==='TEAM' ? esc(p.name) : pDash(p)}${p.pos?` <span style="color:var(--dim);font-size:10px">${esc(p.pos)}</span>`:''}</td>
+      ${COLS.map(c=>`<td class="num ${c[3]||''} ${cellTone(c,r)}">${c[2](r)}</td>`).join('')}
+    </tr>`).join('');
+
+  return `
+  <div class="panel">
+    <h2>${esc(t.name)}</h2>
+    <div class="kpis">
+      <div class="kpi"><div class="l">Hitting %</div>
+        <div class="v ${he===null?'':he>=0?'pos':'neg'}">${pct3(he)}</div></div>
+      <div class="kpi"><div class="l">Kills</div><div class="v">${tot.kill}</div></div>
+      <div class="kpi"><div class="l">Attack Err</div><div class="v">${tot.attackErr}</div></div>
+      <div class="kpi"><div class="l">Aces</div><div class="v">${tot.ace}</div></div>
+      <div class="kpi"><div class="l">Total Blocks</div><div class="v">${half(blockTot(tot))}</div></div>
+      <div class="kpi"><div class="l">Digs</div><div class="v">${tot.dig}</div></div>
+      <div class="kpi"><div class="l">Pass Rating</div><div class="v">${dec(passRating(tot))}</div></div>
+      <div class="kpi"><div class="l">Errors</div><div class="v">${errors(tot)}</div></div>
+    </div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th title="Jersey number">#</th><th title="Player">Player</th>
+        ${COLS.map(c=>`<th class="${c[3]||''}" title="${esc(c[1])}">${c[0]}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${body || `<tr><td colspan="${COLS.length+2}" style="text-align:center;color:var(--dim);padding:20px">No players</td></tr>`}
+        <tr class="tot">
+          <td></td><td>TOTAL</td>
+          ${COLS.map(c=>`<td class="num ${c[3]||''} ${cellTone(c,tot)}">${c[2](tot)}</td>`).join('')}
+        </tr>
+      </tbody>
+    </table></div>
+  </div>`;
+}
+function cellTone(c, r){
+  if(c[0] !== 'Hit%') return '';
+  const v = hitPct(r);
+  return v===null ? '' : v>=0 ? 'pos' : 'neg';
+}
+
+/* ---------- TEAMS ---------- */
+function vTeams(){
+  const list = S.teams.map(t=>`
+    <div class="panel">
+      <div class="row" style="margin-bottom:11px">
+        <input value="${esc(t.name)}" data-tname="${t.id}" style="font-weight:700;min-width:220px">
+        <span class="badge">${t.players.length} player${t.players.length===1?'':'s'}</span>
+        <div class="spacer"></div>
+        <button class="btn sm danger" data-delteam="${t.id}">Delete team</button>
+      </div>
+      <div class="list">
+        ${t.players.map(p=>`
+          <div class="item">
+            <input class="num" value="${esc(p.number)}" data-pnum="${p.id}" style="width:56px;text-align:center" placeholder="#">
+            <input value="${esc(p.name)}" data-pname="${p.id}" style="flex:1;min-width:130px" placeholder="No name">
+            <select data-ppos="${p.id}">
+              ${POSITIONS.map(o=>`<option ${o===(p.pos||'')?'selected':''} value="${o}">${o||'—'}</option>`).join('')}
+            </select>
+            <button class="btn sm danger" data-delplayer="${p.id}">×</button>
+          </div>`).join('') || `<div class="empty">No players yet.</div>`}
+      </div>
+      <div class="row" style="margin-top:11px">
+        <input placeholder="# or 3,7,12" data-newnum="${t.id}" style="width:104px;text-align:center">
+        <input placeholder="Name (optional)" data-newname="${t.id}" style="flex:1;min-width:150px">
+        <select data-newpos="${t.id}">${POSITIONS.map(o=>`<option value="${o}">${o||'—'}</option>`).join('')}</select>
+        <button class="btn" data-addplayer="${t.id}">Add</button>
+      </div>
+      <div class="hint">Number or name — either is enough. Enter several numbers at once
+        (<code>3, 7, 12</code>) to build an opponent roster you only know by jersey.</div>
+    </div>`).join('');
+
+  return `
+  <div class="panel">
+    <div class="row">
+      <h2 style="margin:0">Teams</h2>
+      <div class="spacer"></div>
+      <input placeholder="New team name" id="newTeam" style="min-width:200px">
+      <button class="btn primary" data-addteam>Add team</button>
+    </div>
+    <div class="hint">Add your own team once, then add an opponent for each club you play. Rosters carry across matches.</div>
+  </div>
+  ${list || `<div class="panel"><div class="empty">No teams yet — add your team above to get started.</div></div>`}`;
+}
+
+/* ---------- MATCHES ---------- */
+function vMatches(){
+  const opts = S.teams.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  const today = new Date().toISOString().slice(0,10);
+
+  const list = [...S.matches].reverse().map(m=>{
+    const w = m.sets.filter(s=>s.a>s.b).length, l = m.sets.filter(s=>s.b>s.a).length;
+    return `<div class="item ${m.id===S.activeMatch?'on':''}">
+      <div>
+        <div class="ttl">${esc(teamName(m.teamA))} vs ${esc(teamName(m.teamB))}</div>
+        <div class="sub">${esc(m.date)} · ${m.sets.length} set${m.sets.length===1?'':'s'}
+          · ${w}–${l} · ${m.events.length} stat${m.events.length===1?'':'s'}</div>
+      </div>
+      <div class="spacer"></div>
+      ${m.id===S.activeMatch ? `<span class="badge">Active</span>` : ''}
+      <button class="btn sm" data-open="${m.id}">Open</button>
+      <button class="btn sm danger" data-delmatch="${m.id}">Delete</button>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="panel">
+    <h2>New match</h2>
+    ${S.teams.length < 2
+      ? `<div class="empty">You need at least two teams. Add them in <b>Teams</b> first.</div>`
+      : `<div class="row">
+          <select id="mA">${opts}</select>
+          <span style="color:var(--dim);font-weight:700">vs</span>
+          <select id="mB">${opts}</select>
+          <input type="date" id="mDate" value="${today}">
+          <button class="btn primary" data-newmatch>Create</button>
+        </div>`}
+  </div>
+
+  <div class="panel">
+    <h2>Match history</h2>
+    <div class="list">${list || `<div class="empty">No matches yet.</div>`}</div>
+  </div>
+
+  <div class="panel">
+    <h2>Backup</h2>
+    <div class="row">
+      <button class="btn" data-export>Export all data (JSON)</button>
+      <button class="btn" data-import>Import JSON…</button>
+      <div class="spacer"></div>
+      <button class="btn danger" data-wipe>Erase everything</button>
+    </div>
+    <div class="hint">Everything lives in this browser's localStorage on this machine only — nothing is uploaded.
+      Export before clearing browser data or switching browsers.</div>
+    <input type="file" id="fileIn" accept="application/json" style="display:none">
+  </div>`;
+}
+
+/* ============================================================
+   EVENT WIRING
+   ============================================================ */
+function wire(){
+  const $$ = s => [...app.querySelectorAll(s)];
+  const on = (sel, ev, fn) => $$(sel).forEach(el => el.addEventListener(ev, fn));
+  const go = v => { view=v; document.querySelectorAll('nav button')
+      .forEach(x=>x.classList.toggle('on', x.dataset.v===v)); render(); };
+
+  on('[data-go]','click', e => go(e.currentTarget.dataset.go));
+
+  /* --- match view --- */
+  on('[data-side]','click', e => { S.ui.side = e.currentTarget.dataset.side; save(); render(); });
+  on('[data-set]','click',  e => { S.ui.set = +e.currentTarget.dataset.set; save(); render(); });
+  on('[data-sel]','click',  e => {
+    const m = current(), tid = S.ui.side==='a' ? m.teamA : m.teamB;
+    S.ui['sel_'+tid] = e.currentTarget.dataset.sel; save(); render();
+  });
+  on('[data-stat]','click', e => addStat(e.currentTarget.dataset.stat));
+  on('[data-undo]','click', undo);
+  // <details> resets on every re-render, so its open state has to be persisted
+  on('details.more','toggle', e => { S.ui.more = e.target.open; save(); });
+  on('[data-newset]','click', () => {
+    const m = current();
+    m.sets.push({a:0,b:0}); S.ui.set = m.sets.length; save(); render();
+    toast('Set ' + m.sets.length + ' started');
+  });
+  on('[data-pt]','click', e => {
+    const [side, d] = e.currentTarget.dataset.pt.split(',');
+    const m = current(), s = m.sets[S.ui.set-1];
+    s[side] = Math.max(0, s[side] + (+d)); save(); render();
+  });
+
+  /* --- box score --- */
+  on('[data-boxset]','click', e => { S.ui.boxSet = +e.currentTarget.dataset.boxset; save(); render(); });
+  on('[data-csv]','click', exportCsv);
+
+  /* --- teams --- */
+  on('[data-addteam]','click', () => {
+    const el = document.getElementById('newTeam');
+    const name = el.value.trim(); if(!name) return el.focus();
+    S.teams.push({id:uid(), name, players:[]}); save(); render(); toast('Team added');
+  });
+  on('[data-tname]','change', e => {
+    team(e.target.dataset.tname).name = e.target.value.trim() || 'Unnamed'; save(); render();
+  });
+  on('[data-delteam]','click', e => {
+    const id = e.currentTarget.dataset.delteam;
+    const used = S.matches.some(m => m.teamA===id || m.teamB===id);
+    if(used) return toast('Team is used by a match — delete the match first');
+    if(!confirm('Delete "'+teamName(id)+'" and its roster?')) return;
+    S.teams = S.teams.filter(t=>t.id!==id); save(); render();
+  });
+  on('[data-addplayer]','click', e => addPlayer(e.currentTarget.dataset.addplayer));
+  on('[data-newname]','keydown', e => { if(e.key==='Enter') addPlayer(e.target.dataset.newname); });
+  on('[data-newnum]','keydown',  e => { if(e.key==='Enter') addPlayer(e.target.dataset.newnum); });
+  on('[data-pnum]','change',  e => { player(e.target.dataset.pnum).number = e.target.value.trim(); save(); });
+  on('[data-pname]','change', e => { player(e.target.dataset.pname).name = e.target.value.trim(); save(); render(); });
+  on('[data-ppos]','change',  e => { player(e.target.dataset.ppos).pos = e.target.value; save(); });
+  on('[data-delplayer]','click', e => {
+    const pid = e.currentTarget.dataset.delplayer;
+    const stats = S.matches.reduce((n,m)=>n + m.events.filter(ev=>ev.playerId===pid).length, 0);
+    if(stats && !confirm('This player has '+stats+' recorded stat(s). Delete anyway? Their stats will be removed too.')) return;
+    for(const t of S.teams) t.players = t.players.filter(p=>p.id!==pid);
+    for(const m of S.matches) m.events = m.events.filter(ev=>ev.playerId!==pid);
+    save(); render();
+  });
+
+  /* --- matches --- */
+  on('[data-newmatch]','click', () => {
+    const a = document.getElementById('mA').value, b = document.getElementById('mB').value;
+    if(a===b) return toast('Pick two different teams');
+    const m = {id:uid(), date:document.getElementById('mDate').value, teamA:a, teamB:b,
+               sets:[{a:0,b:0}], events:[]};
+    S.matches.push(m); S.activeMatch = m.id; S.ui = {set:1, side:'a'};
+    save(); go('match'); toast('Match created');
+  });
+  on('[data-open]','click', e => {
+    S.activeMatch = e.currentTarget.dataset.open;
+    S.ui = {set:1, side:'a', boxSet:0}; save(); go('match');
+  });
+  on('[data-delmatch]','click', e => {
+    const id = e.currentTarget.dataset.delmatch;
+    if(!confirm('Delete this match and all of its stats?')) return;
+    S.matches = S.matches.filter(m=>m.id!==id);
+    if(S.activeMatch===id) S.activeMatch = S.matches.at(-1)?.id ?? null;
+    save(); render();
+  });
+  on('[data-export]','click', () => {
+    download('volleyball-stats-' + new Date().toISOString().slice(0,10) + '.json',
+             JSON.stringify(S, null, 2), 'application/json');
+  });
+  on('[data-import]','click', () => document.getElementById('fileIn').click());
+  const fi = document.getElementById('fileIn');
+  if(fi) fi.onchange = ev => {
+    const f = ev.target.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try{
+        const d = JSON.parse(r.result);
+        if(!Array.isArray(d.teams) || !Array.isArray(d.matches)) throw new Error('not a stats file');
+        if(!confirm('Replace all current data with this file?')) return;
+        S = Object.assign(blank(), d); save(); render(); toast('Imported');
+      }catch(err){ alert('Could not import: ' + err.message); }
+    };
+    r.readAsText(f);
+  };
+  on('[data-wipe]','click', () => {
+    if(!confirm('Erase ALL teams, matches and stats? This cannot be undone.')) return;
+    if(!confirm('Really erase everything? Export first if you want a backup.')) return;
+    S = blank(); save(); render(); toast('Erased');
+  });
+}
+
+function addPlayer(tid){
+  const t = team(tid);
+  const numEl  = app.querySelector(`[data-newnum="${tid}"]`);
+  const nameEl = app.querySelector(`[data-newname="${tid}"]`);
+  const posEl  = app.querySelector(`[data-newpos="${tid}"]`);
+  const name = nameEl.value.trim();
+  const nums = numEl.value.split(/[\s,;/]+/).map(s=>s.trim()).filter(Boolean);
+
+  // Either a number or a name is enough. Several numbers at once only
+  // makes sense when there's no name to attach, so a name forces one row.
+  if(!nums.length && !name) return numEl.focus();
+  const rows = (nums.length && !name) ? nums.map(n=>({number:n, name:''}))
+             : [{number:nums[0] ?? '', name}];
+
+  for(const r of rows) t.players.push({id:uid(), number:r.number, name:r.name, pos:posEl.value});
+  save(); render();
+  app.querySelector(`[data-newnum="${tid}"]`)?.focus();
+  if(rows.length > 1) toast(rows.length + ' players added');
+}
+
+function addStat(stat){
+  const m = current(); if(!m) return;
+  const teamId = S.ui.side==='a' ? m.teamA : m.teamB;
+  const sel = S.ui['sel_'+teamId];
+  if(!sel) return toast('Select a player first');
+  m.events.push({id:uid(), set:S.ui.set, teamId,
+                 playerId: sel==='TEAM' ? null : sel, stat});
+  save(); render();
+  toast(STAT_LABEL[stat] + ' recorded');
+}
+
+function undo(){
+  const m = current();
+  if(!m || !m.events.length) return;
+  const ev = m.events.pop();
+  save(); render();
+  toast('Undid ' + STAT_LABEL[ev.stat]);
+}
+
+/* ---------- keyboard ---------- */
+document.addEventListener('keydown', e => {
+  if(view !== 'match') return;
+  if(e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = document.activeElement?.tagName;
+  if(tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+  const k = e.key.toLowerCase();
+  if(k === 'z'){ e.preventDefault(); return undo(); }
+  if(STAT_BY_KB[k]){ e.preventDefault(); addStat(STAT_BY_KB[k]); }
+});
+
+/* ---------- export helpers ---------- */
+function download(filename, text, type){
+  const url = URL.createObjectURL(new Blob([text], {type}));
+  const a = Object.assign(document.createElement('a'), {href:url, download:filename});
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+function exportCsv(){
+  const m = current(); if(!m) return;
+  const f = S.ui.boxSet ? {set:S.ui.boxSet} : {};
+  const q = v => `"${String(v).replace(/"/g,'""')}"`;
+  const lines = [['Team','#','Player','Pos', ...COLS.map(c=>c[0])].map(q).join(',')];
+
+  for(const tid of [m.teamA, m.teamB]){
+    const t = team(tid), agg = tally(m, {...f, teamId:tid});
+    const rows = [
+      ...t.players.map(p=>({p, r: agg[p.id] ?? zero()})),
+      ...(agg['TEAM:'+tid] ? [{p:{number:'',name:'Team / unassigned',pos:''}, r:agg['TEAM:'+tid]}] : [])
+    ];
+    for(const {p,r} of rows)
+      lines.push([t.name, p.number, p.name, p.pos||'', ...COLS.map(c=>c[2](r))].map(q).join(','));
+    const tot = sumRows(rows.map(x=>x.r));
+    lines.push([t.name,'','TOTAL','', ...COLS.map(c=>c[2](tot))].map(q).join(','));
+  }
+  const label = S.ui.boxSet ? 'set'+S.ui.boxSet : 'all-sets';
+  download(`box-score-${m.date}-${label}.csv`, lines.join('\n'), 'text/csv');
+}
+
+/* ---------- offline support ----------
+   Service workers only register from a secure context, so this is a no-op
+   when the file is opened directly from disk (file://) — which is exactly
+   how it still works on the Mac. On the hosted copy it caches the app so
+   the phone runs with no network. */
+if('serviceWorker' in navigator &&
+   (location.protocol === 'https:' || ['localhost','127.0.0.1'].includes(location.hostname))){
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // only reload for an *update*, not the very first install
+    if(hadController && !reloading){ reloading = true; location.reload(); }
+  });
+  addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+
+/* ---------- boot ---------- */
+if(!S.activeMatch && S.matches.length) S.activeMatch = S.matches.at(-1).id;
+render();
+</script>
+</body>
+</html>
